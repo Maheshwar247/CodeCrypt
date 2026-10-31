@@ -86,20 +86,12 @@ No React, Node.js, database, or paid cloud AI API is required.
 
 ## Screenshots
 
-Add screenshots of your own running application to the repository and update the paths below.
+<img width="1901" height="1198" alt="Screenshot 2026-10-31 205821" src="https://github.com/user-attachments/assets/f1d72aa7-d17a-4156-ae43-bc24ec0ac380" />
 
-| Main dashboard | Code analysis |
-|---|---|
-| `docs/screenshots/dashboard.png` | `docs/screenshots/analysis-results.png` |
+<img width="1897" height="1198" alt="Screenshot 2026-10-31 210041" src="https://github.com/user-attachments/assets/e9799f8a-286b-46db-87ed-46544ebafff4" />
 
-Example Markdown once the images have been added:
+<img width="1895" height="1198" alt="Screenshot 2026-10-31 210108" src="https://github.com/user-attachments/assets/661110e2-0ad5-48c6-9d56-6e5d8febcbaa" />
 
-```markdown
-![CodeCrypt dashboard](docs/screenshots/dashboard.png)
-![CodeCrypt analysis results](docs/screenshots/analysis-results.png)
-```
-
----
 
 ## Requirements
 
@@ -370,11 +362,6 @@ Please avoid committing virtual environments, `.env` files, model weights, secre
 
 ---
 
-## License
-
-No project license is currently included. Until a license is selected and added to the repository, others should not assume they have permission to reuse, modify, or redistribute this project's code.
-
----
 
 **Built for Hacktoberfest 2026 — Week 4: Ghost in the Machine.**  
 *Every line has a story. Let's uncover it.* 👻
