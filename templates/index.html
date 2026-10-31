@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="CodeCrypt — AI-powered code analysis assistant inspired by Hacktoberfest 'Ghost in the Machine'. Revive and modernize forgotten code locally using Ollama and Gemma 2." />
+  <title>CodeCrypt — Bring Forgotten Code Back to Life</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Monospace and UI font choices with clean system fallbacks -->
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="crypt-theme">
+  <!-- Subtle scanline overlay for digital archive ambiance -->
+  <div class="scanline-overlay" aria-hidden="true"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-inner container">
+      <div class="brand">
+        <div class="brand-crest" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="crest-svg">
+            <rect x="2" y="4" width="28" height="24" rx="4" class="crest-frame" />
+            <path d="M7 11L12 16L7 21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M14 21H23" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <circle cx="23" cy="11" r="2" fill="currentColor" class="crest-dot" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">CodeCrypt</h1>
+          <p class="brand-tagline">Bring Forgotten Code Back to Life</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <!-- Live Ollama connectivity badge -->
+        <div id="ollama-status-badge" class="status-badge checking" title="Click to refresh Ollama connection status" role="status" tabindex="0">
+          <span class="status-dot"></span>
+          <span class="status-label">Checking Ollama...</span>
+          <button id="refresh-status-btn" class="icon-btn-minimal" aria-label="Refresh Ollama status" title="Refresh status">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Model configured tag -->
+        <div class="model-badge" title="Locally configured inference model">
+          <span class="model-icon" aria-hidden="true">⚡</span>
+          <span class="model-name" id="configured-model-name">{{ configured_model }}</span>
+        </div>
+
+        <!-- Project Dossier Info Modal trigger -->
+        <button id="open-dossier-btn" class="dossier-btn" aria-label="Open Project Information Dossier">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>About CodeCrypt</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main App Layout -->
+  <main class="main-content container">
+    <!-- Hero / Archive Dossier banner -->
+    <section class="hero-section">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="ghost-glyph">👻</span>
+          <span>Hacktoberfest 2026: Ghost in the Machine</span>
+        </div>
+        <h2 class="hero-headline">Every line has a story. Let's uncover it.</h2>
+        <p class="hero-subtext">
+          A local AI code archaeologist running completely offline via <strong>Ollama</strong> and <strong>Gemma 2</strong>.
+          Paste outdated, legacy, or confusing code to decipher its logic, scan for vulnerabilities, and resurrect modern versions—with zero cloud telemetry.
+        </p>
+      </div>
+    </section>
+
+    <!-- Global Connection Alert (if Ollama offline) -->
+    <div id="connection-alert" class="alert-banner alert-warning hidden" role="alert">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-body">
+        <strong id="alert-title">Ollama Connection Warning</strong>
+        <p id="alert-message">Connecting to local Ollama instance...</p>
+      </div>
+      <button class="alert-close-btn" id="close-alert-btn" aria-label="Dismiss alert">&times;</button>
+    </div>
+
+    <!-- Dual Panel Workspace -->
+    <div class="workspace-grid">
+      <!-- Left Panel: Input & Workspace Controls -->
+      <section class="panel editor-panel" aria-labelledby="editor-heading">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon" aria-hidden="true">📜</span>
+            <h2 id="editor-heading" class="panel-title">Artifact Editor</h2>
+          </div>
+          <div class="editor-header-actions">
+            <!-- Language Selection -->
+            <label for="language-select" class="sr-only">Source Code Language</label>
+            <div class="select-wrapper">
+              <select id="language-select" class="custom-select" aria-label="Select Programming Language">
+                {% for code, name in languages %}
+                <option value="{{ code }}" {% if code == 'auto' %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Example Loader Dropdown -->
+            <div class="dropdown">
+              <button id="example-btn" class="btn btn-secondary btn-sm" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <span>Load Sample</span>
+              </button>
+              <div id="example-menu" class="dropdown-menu" role="menu" aria-label="Sample snippets">
+                <button type="button" class="dropdown-item" data-sample="python_legacy" role="menuitem">
+                  <span class="sample-name">Python: Unsafe Eval & Mutable Defaults</span>
+                  <span class="sample-badge">Legacy 2.7</span>
+                </button>
+                <button type="button" class="dropdown-item" data-sample="js_callback" role="menuitem">
+                  <span class="sample-name">JavaScript: Callback Hell & XHR</span>
+                  <span class="sample-badge">ES5</span>
+                </button>
+                <button type="button" class="dropdown-item" data-sample="sql_injection" role="menuitem">
+                  <span class="sample-name">Python / SQL: String Concatenation Flaw</span>
+                  <span class="sample-badge">Vulnerable</span>
+                </button>
+                <button type="button" class="dropdown-item" data-sample="c_memory" role="menuitem">
+                  <span class="sample-name">C: Buffer Overflow & Memory Leak</span>
+                  <span class="sample-badge">Memory</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Clear Button -->
+            <button id="clear-btn" class="btn btn-ghost btn-sm" title="Clear editor content">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Code Editor Area -->
+        <div class="editor-container">
+          <div class="editor-gutter" aria-hidden="true" id="editor-gutter">
+            <span>1</span>
+          </div>
+          <textarea
+            id="code-input"
+            class="code-textarea"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            placeholder="// Paste your forgotten, cryptic, or legacy code here...
+// E.g. mysterious algorithms, legacy scripts, or complex legacy routines.
+function parseLegacyLog(data) {
+    var parts = data.split(';');
+    return eval('({' + parts[0] + '})');
+}"
+            maxlength="{{ max_code_length }}"
+            aria-label="Source code input"
+          ></textarea>
+        </div>
+
+        <!-- Editor Toolbar & Counter -->
+        <div class="editor-footer">
+          <div class="char-counter-group">
+            <span id="char-count">0</span>
+            <span class="char-limit">/ {{ "{:,}".format(max_code_length) }} chars</span>
+            <span id="char-warning" class="char-warning-msg hidden">Approaching limit</span>
+          </div>
+          <div class="editor-hint">
+            <span>All code is analyzed locally via Ollama. No remote telemetry.</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-grid" role="group" aria-label="CodeCrypt Analysis Actions">
+          <button id="action-explain" class="action-btn action-explain" data-action="explain">
+            <div class="action-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <div class="action-details">
+              <span class="action-title">Explain Code</span>
+              <span class="action-desc">Unpack logic, flows & assumptions</span>
+            </div>
+          </button>
+
+          <button id="action-scan" class="action-btn action-scan" data-action="scan">
+            <div class="action-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <path d="M12 8v4M12 16h.01"></path>
+              </svg>
+            </div>
+            <div class="action-details">
+              <span class="action-title">Scan for Issues</span>
+              <span class="action-desc">Audit bugs, smells & risks</span>
+            </div>
+          </button>
+
+          <button id="action-restore" class="action-btn action-restore" data-action="restore">
+            <div class="action-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </div>
+            <div class="action-details">
+              <span class="action-title">Restore Code</span>
+              <span class="action-desc">Modernize, clean & harden</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Analysis Results -->
+      <section class="panel results-panel" aria-labelledby="results-heading">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon" aria-hidden="true">🔮</span>
+            <h2 id="results-heading" class="panel-title">Investigation Chamber</h2>
+          </div>
+          <div class="results-header-actions">
+            <button id="copy-full-btn" class="btn btn-secondary btn-sm hidden" title="Copy full report to clipboard">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span class="copy-text">Copy Report</span>
+            </button>
+            <button id="history-toggle-btn" class="btn btn-ghost btn-sm" title="View locally stored recent sessions">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>Recent</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chamber State Containers -->
+        <div class="results-body">
+          <!-- Initial Empty State -->
+          <div id="state-empty" class="chamber-state state-empty">
+            <div class="empty-icon-wrap" aria-hidden="true">
+              <div class="crypt-orb"></div>
+            </div>
+            <h3 class="state-title">Chamber Awaiting Artifact</h3>
+            <p class="state-desc">
+              Paste a mysterious snippet on the left and select an action to awaken the machine.
+            </p>
+            <div class="feature-pills">
+              <span class="pill">🔍 Logic Deconstruction</span>
+              <span class="pill">🛡️ Vulnerability Scan</span>
+              <span class="pill">⚡ Modernized Re-engineering</span>
+            </div>
+          </div>
+
+          <!-- Loading State with Scanning Radar -->
+          <div id="state-loading" class="chamber-state state-loading hidden" aria-live="polite">
+            <div class="radar-scan-wrapper" aria-hidden="true">
+              <div class="radar-circle"></div>
+              <div class="radar-sweep"></div>
+            </div>
+            <h3 class="state-title" id="loading-title">Deciphering Ancient Glyphs...</h3>
+            <p class="state-desc" id="loading-subtitle">Querying local Ollama engine with Gemma 2.</p>
+            <div class="loading-progress-bar">
+              <div class="progress-bar-glow"></div>
+            </div>
+            <p class="loading-tip">
+              <em>Tip:</em> Large snippets may take a few moments on local CPU/GPU inference.
+            </p>
+          </div>
+
+          <!-- Error State -->
+          <div id="state-error" class="chamber-state state-error hidden" role="alert">
+            <div class="error-badge-icon" aria-hidden="true">⚠️</div>
+            <h3 class="state-title" id="error-title">Investigation Interrupted</h3>
+            <div class="error-box" id="error-message"></div>
+            <div class="troubleshoot-guide" id="troubleshoot-guide">
+              <h4>Actionable Remediation:</h4>
+              <ul id="troubleshoot-steps">
+                <li>Check if Ollama service is running: execute <code>ollama serve</code> in terminal.</li>
+                <li>Verify model is installed: execute <code>ollama pull {{ configured_model }}</code>.</li>
+                <li>Check backend health at <code>/api/health</code>.</li>
+              </ul>
+            </div>
+            <button id="retry-btn" class="btn btn-primary btn-sm">
+              <span>Try Again</span>
+            </button>
+          </div>
+
+          <!-- Success Rendered Results State -->
+          <div id="state-success" class="chamber-state state-success hidden">
+            <div class="result-meta-bar">
+              <div class="meta-left">
+                <span id="result-action-badge" class="badge badge-action">EXPLAIN</span>
+                <span id="result-lang-badge" class="badge badge-lang">Python</span>
+                <span class="badge badge-model">{{ configured_model }}</span>
+              </div>
+              <div class="meta-right">
+                <span id="result-timestamp" class="meta-time">Just now</span>
+              </div>
+            </div>
+
+            <!-- Safe DOM Output Container (No arbitrary innerHTML) -->
+            <div id="rendered-output" class="markdown-article" role="region" aria-label="Analysis Results"></div>
+          </div>
+
+          <!-- Local History Drawer/Flyout -->
+          <div id="history-drawer" class="history-drawer hidden" aria-label="Recent Local Analyses">
+            <div class="drawer-header">
+              <h3>Recent Analyses</h3>
+              <button id="close-history-btn" class="icon-btn-minimal" aria-label="Close recent analyses">&times;</button>
+            </div>
+            <p class="drawer-notice">
+              <small>Retained only in this browser's <code>localStorage</code>. Never synchronized or uploaded.</small>
+            </p>
+            <div id="history-list" class="history-list">
+              <!-- Dynamically populated safe DOM elements -->
+            </div>
+            <div class="drawer-footer">
+              <button id="clear-history-btn" class="btn btn-ghost btn-xs">Clear Local History</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Project Dossier / About Modal -->
+  <div id="dossier-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge-ghost">👻 Hacktoberfest 2026</span>
+          <h2 id="modal-title" class="modal-title">CodeCrypt — Project Dossier</h2>
+        </div>
+        <button id="close-dossier-btn" class="modal-close" aria-label="Close dossier modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <section class="modal-section">
+          <h3>Theme: "Ghost in the Machine"</h3>
+          <p>
+            CodeCrypt is inspired by the Week 4 Hacktoberfest theme. Every codebase accumulates digital ghosts—forgotten scripts, obsolete protocols, and cryptic legacy logic written by engineers who have long moved on. CodeCrypt treats your terminal as an archaeological dig site, using open-weight local AI models to breathe new life into forgotten software.
+          </p>
+        </section>
+
+        <section class="modal-section">
+          <h3>Why Open Innovation Matters</h3>
+          <ul>
+            <li><strong>Local Model Experimentation:</strong> Run high-performance open-weight models like Google's Gemma 2 entirely on consumer hardware without vendor lock-in.</li>
+            <li><strong>Zero Data Exfiltration:</strong> Sensitive code, internal libraries, and proprietary logic never cross the wire to external cloud APIs.</li>
+            <li><strong>Inspectable & Hackable:</strong> Clean, minimalist stack (Flask, Vanilla JS, CSS) with zero bloated frameworks, ready for developers to audit and extend.</li>
+            <li><strong>Community Driven:</strong> Built for open-source exploration, hackathons, and reproducible AI development.</li>
+          </ul>
+        </section>
+
+        <section class="modal-section">
+          <h3>System Architecture</h3>
+          <div class="arch-box">
+            <code>[Browser UI] ➔ [Flask API Server (app.py)] ➔ [Ollama HTTP API (/api/generate)] ➔ [Gemma 2 Model]</code>
+          </div>
+          <p>
+            The backend serves strictly as an orchestrator and prompt boundary guard, enforcing strict input limits and prompt demarcations to prevent injection from untrusted source code.
+          </p>
+        </section>
+
+        <section class="modal-section">
+          <h3>Model Information</h3>
+          <p>
+            Default Model: <code>{{ configured_model }}</code> running through Ollama. Gemma 2 is an open-weight model created by Google. Note that open-weight model terms and Ollama's MIT license govern their respective components.
+          </p>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modal-dismiss-btn" class="btn btn-secondary">Close Dossier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast for Copy / Status -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-inner container">
+      <div class="footer-disclaimer">
+        <p>
+          <strong>Security & AI Notice:</strong> All analysis is performed by your locally configured Ollama instance.
+          AI outputs may contain inaccuracies or incomplete assessments; never execute unvetted code in production environments.
+        </p>
+      </div>
+      <div class="footer-meta">
+        <span>CodeCrypt &bull; Hacktoberfest 2026 Week 4</span>
+        {% if github_repo_url %}
+        <a href="{{ github_repo_url }}" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub Repository</a>
+        {% else %}
+        <span class="footer-note">Ready for GitHub Publication</span>
+        {% endif %}
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
