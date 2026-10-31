@@ -120,7 +120,7 @@ ollama --version
 Clone your repository, then move into the project directory:
 
 ```bash
-git clone <YOUR_CODECRYPT_REPOSITORY_URL>
+git clone https://github.com/Maheshwar247/CodeCrypt.git
 cd CodeCrypt
 ```
 
